@@ -1,3 +1,4 @@
+from django.http import Http404
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 
@@ -21,6 +22,8 @@ def topics(request):
 @login_required
 def topic(request, topic_id):
     topic = Topic.objects.get(id=topic_id)
+    if topic.owner != request.user:
+        raise Http404
     entries = topic.entry_set.order_by('-date_added')
     context = {'topic': topic, 'entries': entries}
     return render(request, 'learning_logs/topic.html', context)
@@ -36,7 +39,9 @@ def new_topic(request):
         # POST提交的数据，对数据进行处理
         form = TopicForm(data=request.POST)
         if form.is_valid():
-            form.save()
+            new_topic = form.save(commit=False)
+            new_topic.owner = request.user
+            new_topic.save()
             return redirect('learning_logs:topics')
 
     # 显示空表单或指出表单无数据
@@ -65,6 +70,8 @@ def new_entry(request, topic_id):
 def edit_entry(request, entry_id):
     entry = Entry.objects.get(id=entry_id)
     topic = entry.topic
+    if topic.owner != request.user:
+        raise Http404
     if request.method != 'POST':
         form = EntryForm(instance=entry)
     else:
